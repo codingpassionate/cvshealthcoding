@@ -1,0 +1,131 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  # Terraform Plan & Apply
+  terraform:
+    name: Terraform Deployment
+    # needs: node_ci
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: "ap-south-1"
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+
+      - name: Configure AWS Credentials
+        id: aws-creds
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Verify AWS Credentials
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.10.4
+
+      - name: go to terraform
+        run: cd terraform
+
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: terraform
+
+      - name: Validate Terraform
+        run: terraform validate
+        working-directory: terraform
+
+      - name: Run Terraform Format Check
+        run: terraform fmt -check
+        working-directory: terraform
+
+      - name: Run Terraform Tests
+        run: terraform test
+        working-directory: terraform
+
+      - name: Run Terraform Plan
+        run: terraform plan -out=tfplan -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}"
+        working-directory: terraform
+
+      - name: Terraform Apply
+        run: terraform apply "tfplan"
+        working-directory: terraform
+
+  # Build and Push Docker Image to AWS ECR
+  docker_push:
+    name: Build & Push Docker Image to ECR
+    needs: terraform
+    runs-on: ubuntu-latest
+    env:
+      ECR_REPO_NAME: "gif-generator"
+      IMAGE_TAG: "latest"
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Docker Image
+        run: |
+          docker build -t $ECR_REPO_NAME:$IMAGE_TAG .
+          docker tag $ECR_REPO_NAME:$IMAGE_TAG ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
+
+      - name: Push Docker Image to ECR
+        run: |
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
+
+  # Deploy to ECS
+  deploy_ecs:
+    name: Deploy New Image to ECS
+    needs: docker_push
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: "ap-south-1"
+      CLUSTER_NAME: "media-generator-cluster"
+      SERVICE_NAME: "gif-generator-service"
+      IMAGE_TAG: "latest"
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Update ECS Service
+        run: |
+          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment

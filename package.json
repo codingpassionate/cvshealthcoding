@@ -1,0 +1,17 @@
+{
+  "name": "cat-gif-generator",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "aws-sdk": "2.1692.0",
+    "axios": "1.4.0",
+    "dotenv": "16.3.1",
+    "express": "4.18.2"
+  }
+}
