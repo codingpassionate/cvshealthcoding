@@ -9,7 +9,12 @@ on:
     branches:
       - main
       - develop
-
+  workflow_dispatch:
+    inputs:
+      run_specific_job:
+        description: "Specify job to run (e.g., terraform-destroy)"
+        required: false
+        default: "terraform-deploy"
 jobs:
   # Terraform Plan & Apply
   terraform:
@@ -68,6 +73,50 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply "tfplan"
+        working-directory: terraform
+
+
+  # Terraform Plan & Apply
+  terraform-destroy:
+    name: Terraform destroy
+    runs-on: ubuntu-latest
+    if: github.event.inputs.run_specific_job == 'terraform-destroy'
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: "ap-south-1"
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        id: aws-creds
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Verify AWS Credentials
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.10.4
+
+      - name: Initialize Terraform
+        run: terraform init
+        working-directory: terraform
+
+      - name: Validate Terraform
+        run: terraform validate
+        working-directory: terraform
+
+      - name: Terraform destroy
+        run: terraform destroy -auto-approve
         working-directory: terraform
 
   # Build and Push Docker Image to AWS ECR
