@@ -14,10 +14,12 @@ on:
       run_specific_job:
         description: "Specify job to run (e.g., terraform-destroy)"
         required: false
+        default: "terraform-deploy"
 jobs:
   # Terraform Plan & Apply
-  terraform:
+  terraform-deploy:
     name: Terraform Deployment
+    if: github.event.inputs.run_specific_job == 'terraform-deploy'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -119,7 +121,7 @@ jobs:
   # Build and Push Docker Image to AWS ECR
   docker_push:
     name: Build & Push Docker Image to ECR
-    needs: terraform
+    needs: terraform-deploy
     runs-on: ubuntu-latest
     env:
       ECR_REPO_NAME: "gif-generator"
