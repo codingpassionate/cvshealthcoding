@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket  = "gif-gen-tf-state-bucket"
+    bucket  = "git-gen-tf-state-bucket"
     key     = "ecs/terraform.tfstate"
     region  = "us-east-1"
     encrypt = true
