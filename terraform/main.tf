@@ -3,7 +3,7 @@ module "vpc" {
   vpc_name            = "gif-app-vpc"
   vpc_cidr            = "10.0.0.0/16"
   public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
-  azs                 = ["ap-south-1a"]
+  azs                 = ["us-east-1a"]
 }
 
 module "security_group" {
@@ -32,7 +32,7 @@ module "ecs" {
   task_cpu           = 256
   task_memory        = 512
   assign_public_ip   = true
-  container_image    = "${var.aws_account_id}.dkr.ecr.ap-south-1.amazonaws.com/${var.repo_name}"
+  container_image    = "${var.aws_account_id}.dkr.ecr.us-east-1.amazonaws.com/${var.repo_name}"
   desired_count      = 1 #increase if required
   subnets            = module.vpc.public_subnets
   container_port     = 80
