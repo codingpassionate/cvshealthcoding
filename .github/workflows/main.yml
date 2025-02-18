@@ -14,12 +14,11 @@ on:
       run_specific_job:
         description: "Specify job to run (e.g., terraform-destroy)"
         required: false
-        default: "terraform-deploy"
 jobs:
   # Terraform Plan & Apply
   terraform:
     name: Terraform Deployment
-    # needs: node_ci
+    if: github.event.inputs.run_specific_job == 'terraform-deploy'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -116,7 +115,7 @@ jobs:
         working-directory: terraform
 
       - name: Terraform destroy
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}"
         working-directory: terraform
 
   # Build and Push Docker Image to AWS ECR
