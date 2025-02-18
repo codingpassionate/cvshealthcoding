@@ -18,7 +18,6 @@ jobs:
   # Terraform Plan & Apply
   terraform:
     name: Terraform Deployment
-    if: github.event.inputs.run_specific_job == 'terraform-deploy'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -29,7 +28,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
 
       - name: Configure AWS Credentials
         id: aws-creds
